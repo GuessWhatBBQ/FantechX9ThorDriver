@@ -16,7 +16,7 @@ class Driver(object):
 
         self.profile_states = [1, 1, 1, 1, 1, 1]
         self.current_active_profile = 1
-        self.cyclic_colors = {"White": 1, "Cyan": 1, "Red": 1, "Lightgreen": 1, "Pink": 1, "Blue": 1, "Yellow": 1}
+        self.cyclic_colors = {"Yellow": 1, "Blue": 1, "Violet": 1, "Green": 1, "Red": 1, "Cyan": 1, "White": 1}
 
         self.supported_dpis = [200, 400, 600, 800, 1000, 1200, 1600, 2000, 2400, 3200, 4000, 4800]
 
@@ -151,13 +151,10 @@ class Driver(object):
         return byte
 
     def set_cyclic_colors(self):
-        colors = self.cyclic_colors["White"] * (2**6)
-        colors += self.cyclic_colors["Cyan"] * (2**5)
-        colors += self.cyclic_colors["Red"] * (2**4)
-        colors += self.cyclic_colors["Lightgreen"] * (2**3)
-        colors += self.cyclic_colors["Pink"] * (2**2)
-        colors += self.cyclic_colors["Blue"] * (2**1)
-        colors += self.cyclic_colors["Yellow"] * (2**0)
+        colorname = list(self.cyclic_colors.keys())
+        colors = 0
+        for i in range(len(self.cyclic_colors)):
+            colors += self.cyclic_colors[colorname[i]] * (2**i)
 
         return colors
 

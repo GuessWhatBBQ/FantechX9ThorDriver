@@ -1,5 +1,6 @@
 import driver_backend
 import gi
+import configparser
 gi.require_version("Gtk", "3.0")
 from gi.repository import Gtk
 from gi.repository import Gdk
@@ -13,7 +14,6 @@ class driver_frontend(Gtk.Window, driver_api):
         super(driver_api, self).__init__()
         self.set_title("FantechX9Thor")
         self.set_default_size(500, 600)
-        self.startup()
 
         ########################################################################
         # Default Configs
@@ -23,9 +23,11 @@ class driver_frontend(Gtk.Window, driver_api):
         self.current_active_profile = 3
         self.rgb_color_change_scheme = "Cyclic"
         self.current_scheme_timer = 1
-        self.cyclic_colors = {"White": 1, "Cyan": 1, "Red": 1, "Lightgreen": 1, "Pink": 1, "Blue": 1, "Yellow": 1}
-        self.config_file_avail = False
+        self.cyclic_colors = {"Yellow": 1, "Blue": 1, "Violet": 1, "Green": 1, "Red": 1, "Cyan": 1, "White": 1}
         ########################################################################
+
+        self.config_location = "driver.conf"
+        self.startup()
 
         self.vbox = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
         self.add(self.vbox)
@@ -33,7 +35,7 @@ class driver_frontend(Gtk.Window, driver_api):
         self.profiles = [Gtk.VBox(spacing=6) for i in range(6)]
 
         self.profile_color_container = [Gdk.RGBA() for i in range(6)]
-        self.set_default_colors(self.config_file_avail)
+        self.set_default_colors()
         self.colors = [Gtk.ColorButton() for i in range(6)]
         for i in range(6):
             self.colors[i].connect("color-set", self.on_color_changed, i)
@@ -131,31 +133,21 @@ class driver_frontend(Gtk.Window, driver_api):
 
         self.action_bar = Gtk.ActionBar()
         self.vbox.pack_end(self.action_bar, False, False, 0)
+
         self.apply_button = Gtk.Button()
         self.apply_button.set_label("Apply")
         self.apply_button.connect("clicked", self.on_apply_button_clicked)
         self.action_bar.pack_end(self.apply_button)
+
         self.reconfigure_button = Gtk.Button()
         self.reconfigure_button.set_label("Reconfigure Device")
-        self.action_bar.pack_start(self.reconfigure_button)
         self.reconfigure_button.connect("clicked", self.reconfigure_button_clicked)
+        self.action_bar.pack_start(self.reconfigure_button)
 
-    def on_scheme_changed(self, combo):
-        tree_iter = combo.get_active_iter()
-        model = combo.get_model()
-        self.rgb_color_change_scheme = model[tree_iter][0]
-
-        time_not_req = ["Static", "Off"]
-
-        if self.rgb_color_change_scheme in time_not_req:
-            self.scheme_timer_combo.set_model()
-        else:
-            self.scheme_timer_combo.set_model(self.color_scheme_timers)
-            self.scheme_timer_combo.set_active(self.scheme_timers.index(self.current_scheme_timer))
-
-    def reconfigure_button_clicked(self, button):
-        print(self.profile_color_configs)
-        self.startup()
+        self.save_button = Gtk.Button()
+        self.save_button.set_label("Save Config")
+        self.save_button.connect("clicked", self.on_save_button_clicked)
+        self.action_bar.pack_end(self.save_button)
 
     def startup(self):
         self.find_device()
@@ -171,6 +163,68 @@ class driver_frontend(Gtk.Window, driver_api):
             alert.set_markup("Device not found! Try Replugging.")
             alert.run()
             alert.destroy()
+
+        try:
+            file = open(self.config_location, "r")
+            file.close()
+            self.retrieve_configs()
+        except FileNotFoundError:
+            print("Config file not found. Creating...")
+            self.save_configs()
+
+    def save_configs(self):
+        config = configparser.ConfigParser()
+
+        profiles = ["profile_1", "profile_2", "profile_3", "profile_4", "profile_5", "profile_6"]
+        config["Active_Profile"] = {"Profile": self.current_active_profile}
+        config["Profile_DPIs"] = dict(zip(profiles, self.profile_dpi_configs))
+        config["Profile_States"] = dict(zip(profiles, self.profile_states))
+        config["Profile_Colors"] = dict(zip(profiles, self.profile_color_configs))
+        config["Color_Scheme"] = {"type": self.rgb_color_change_scheme, "duration": self.current_scheme_timer}
+        config["Cyclic_Colors"] = self.cyclic_colors
+
+        with open(self.config_location, "w") as configfile:
+            config.write(configfile)
+
+    def retrieve_configs(self):
+        config = configparser.ConfigParser()
+        config.read(self.config_location)
+
+        temp_dict = config["Active_Profile"]
+        for key, value in temp_dict.items():
+            self.current_active_profile = int(value)
+
+            prof = 0
+            temp_dict = config["Profile_DPIs"]
+        for key, value in temp_dict.items():
+            self.profile_dpi_configs[prof] = int(value)
+            prof += 1
+
+        prof = 0
+        temp_dict = config["Profile_States"]
+        for key, value in temp_dict.items():
+            self.profile_states[prof] = int(value)
+            prof += 1
+
+        prof = 0
+        temp_dict = config["Profile_Colors"]
+        for key, value in temp_dict.items():
+            self.profile_color_configs[prof] = value
+            prof += 1
+
+        temp_dict = config["Color_Scheme"]
+        self.rgb_color_change_scheme = temp_dict["type"]
+        self.current_scheme_timer = int(temp_dict["duration"])
+
+        temp_dict = dict(config["Cyclic_Colors"])
+        temp_values = list(temp_dict.values())
+        temp_keys = list(temp_dict.keys())
+        for prof in range(len(temp_dict)):
+            temp_keys[prof] = temp_keys[prof].capitalize()
+            self.cyclic_colors[temp_keys[prof]] = int(temp_values[prof])
+
+    def reconfigure_button_clicked(self, button):
+        self.startup()
 
     def on_state_toggled(self, button, profile):
         state = button.get_active()
@@ -226,10 +280,25 @@ class driver_frontend(Gtk.Window, driver_api):
         else:
             self.cyclic_colors[label] = 0
 
-    def set_default_colors(self, config_state):
-        if not config_state:
-            for i in range(6):
-                self.profile_color_container[i].parse(self.profile_color_configs[i])
+    def on_save_button_clicked(self, button):
+        self.save_configs()
+
+    def set_default_colors(self):
+        for i in range(6):
+            self.profile_color_container[i].parse(self.profile_color_configs[i])
+
+    def on_scheme_changed(self, combo):
+        tree_iter = combo.get_active_iter()
+        model = combo.get_model()
+        self.rgb_color_change_scheme = model[tree_iter][0]
+
+        time_not_req = ["Static", "Off"]
+
+        if self.rgb_color_change_scheme in time_not_req:
+            self.scheme_timer_combo.set_model()
+        else:
+            self.scheme_timer_combo.set_model(self.color_scheme_timers)
+            self.scheme_timer_combo.set_active(self.scheme_timers.index(self.current_scheme_timer))
 
 
 ui = driver_frontend()
