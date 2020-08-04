@@ -15,7 +15,7 @@ The following python modules are required:
 ### Usage
 Simply clone the repo and run the driver_frontend.py file. Since the project is written in python you can simply download the 2 files (driver_backend.py and driver_frontend.py) to the same folder and achieve the same functionality.
 
-There is no convenient way to save configurations for now. You can edit the desired values, which are hardcoded in the driver_frontend.py file, inside the **Default Config** block.
+The current configuration you have set will be saved when the `save configuration` button is pressed, in a file called **driver.conf** in the same folder the program is run from.  
 
 #### It should look similar to this (depends on gtk theme):
 
